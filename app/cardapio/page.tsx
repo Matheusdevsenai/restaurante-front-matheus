@@ -3,365 +3,811 @@
 import { useEffect, useState } from "react"
 
 interface Produto {
-id: number
-descricao: string
-categoria: string
-preco: number
-imagem?: string
+    id: number
+    descricao: string
+    categoria: string
+    preco: number
+    imagem?: string
+    disponivel: boolean | number
+}
+
+interface ItemCarrinho extends Produto {
+    quantidade: number
 }
 
 export default function CardapioPage() {
-const [produtos, setProdutos] = useState<Produto[]>([])
-const [loading, setLoading] = useState(true)
-const [erro, setErro] = useState("")
+    const [produtos, setProdutos] = useState<Produto[]>([])
+    const [carregando, setCarregando] = useState(true)
+    const [erro, setErro] = useState("")
 
-async function mostrarProdutos() {
-    try {
-        setLoading(true)
-        setErro("")
+    const [busca, setBusca] = useState("")
+    const [categoriaSelecionada, setCategoriaSelecionada] = useState("Todas")
+    const [statusSelecionado, setStatusSelecionado] = useState("Todos")
 
-        const response = await fetch("http://localhost:3001/produtos", {
-            method: "GET",
-            headers: {
-                Accept: "application/json",
-            },
-            cache: "no-store",
+    const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
+    const [carrinhoAberto, setCarrinhoAberto] = useState(false)
+
+    // NOVO: mensagem de produto adicionado
+    const [mensagemCarrinho, setMensagemCarrinho] = useState("")
+
+    const API_URL = "http://localhost:3001/produtos"
+
+    useEffect(() => {
+        carregarProdutos()
+    }, [])
+
+    async function carregarProdutos() {
+        try {
+            setCarregando(true)
+            setErro("")
+
+            const resposta = await fetch(API_URL, {
+                method: "GET",
+                headers: {
+                    Accept: "application/json",
+                },
+                cache: "no-store",
+            })
+
+            if (!resposta.ok) {
+                throw new Error("Erro ao carregar os produtos")
+            }
+
+            const dados = await resposta.json()
+            setProdutos(dados)
+        } catch (error) {
+            console.error(error)
+            setErro("Não foi possível carregar o cardápio.")
+        } finally {
+            setCarregando(false)
+        }
+    }
+
+    function formatarPreco(preco: number) {
+        return preco.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        })
+    }
+
+    function temImagem(imagem?: string) {
+        return imagem && imagem.trim() !== ""
+    }
+
+    // Categorias
+    const categorias = [
+        "Todas",
+        ...Array.from(
+            new Set(produtos.map((produto) => produto.categoria))
+        ),
+    ]
+
+    // Filtros
+    const produtosFiltrados = produtos.filter((produto) => {
+        const correspondeBusca = produto.descricao
+            .toLowerCase()
+            .includes(busca.toLowerCase())
+
+        const correspondeCategoria =
+            categoriaSelecionada === "Todas" ||
+            produto.categoria === categoriaSelecionada
+
+        const disponivel = Boolean(produto.disponivel)
+
+        const correspondeStatus =
+            statusSelecionado === "Todos" ||
+            (statusSelecionado === "Disponíveis" && disponivel) ||
+            (statusSelecionado === "Indisponíveis" && !disponivel)
+
+        return (
+            correspondeBusca &&
+            correspondeCategoria &&
+            correspondeStatus
+        )
+    })
+
+    // ADICIONAR AO CARRINHO
+    function adicionarAoCarrinho(produto: Produto) {
+        setCarrinho((atual) => {
+            const existente = atual.find(
+                (item) => item.id === produto.id
+            )
+
+            if (existente) {
+                return atual.map((item) =>
+                    item.id === produto.id
+                        ? {
+                              ...item,
+                              quantidade: item.quantidade + 1,
+                          }
+                        : item
+                )
+            }
+
+            return [
+                ...atual,
+                {
+                    ...produto,
+                    quantidade: 1,
+                },
+            ]
         })
 
-        const data = await response.json()
-
-        if (!response.ok) {
-            throw new Error(
-                data?.erro || "Erro ao buscar produtos"
-            )
-        }
-
-        if (!Array.isArray(data)) {
-            throw new Error(
-                "A API não retornou uma lista de produtos."
-            )
-        }
-
-        setProdutos(data)
-    } catch (error) {
-        console.error("Erro ao buscar produtos:", error)
-
-        setProdutos([])
-
-        setErro(
-            "Não foi possível carregar os produtos. Verifique se o servidor da API está funcionando."
+        // Mostra a mensagem
+        setMensagemCarrinho(
+            `✅ ${produto.descricao} foi adicionado ao carrinho!`
         )
-    } finally {
-        setLoading(false)
-    }
-}
 
-useEffect(() => {
-    mostrarProdutos()
-}, [])
-
-function formatarPreco(preco: number) {
-    const valor = Number(preco)
-
-    if (Number.isNaN(valor)) {
-        return "0,00"
+        // Remove a mensagem depois de 2,5 segundos
+        setTimeout(() => {
+            setMensagemCarrinho("")
+        }, 2500)
     }
 
-    return valor.toLocaleString("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })
-}
-
-function temImagem(imagem?: string) {
-    return Boolean(
-        imagem &&
-        (
-            imagem.startsWith("/") ||
-            imagem.startsWith("http://") ||
-            imagem.startsWith("https://")
+    // AUMENTAR QUANTIDADE
+    function aumentarQuantidade(id: number) {
+        setCarrinho((atual) =>
+            atual.map((item) =>
+                item.id === id
+                    ? {
+                          ...item,
+                          quantidade: item.quantidade + 1,
+                      }
+                    : item
+            )
         )
+    }
+
+    // DIMINUIR QUANTIDADE
+    function diminuirQuantidade(id: number) {
+        setCarrinho((atual) =>
+            atual
+                .map((item) =>
+                    item.id === id
+                        ? {
+                              ...item,
+                              quantidade: item.quantidade - 1,
+                          }
+                        : item
+                )
+                .filter((item) => item.quantidade > 0)
+        )
+    }
+
+    // REMOVER DO CARRINHO
+    function removerDoCarrinho(id: number) {
+        setCarrinho((atual) =>
+            atual.filter((item) => item.id !== id)
+        )
+    }
+
+    // TOTAL DE ITENS
+    const quantidadeTotal = carrinho.reduce(
+        (total, item) => total + item.quantidade,
+        0
     )
-}
 
-return (
-    <main className="min-h-screen bg-[#0b0b0b] text-white">
+    // TOTAL DO CARRINHO
+    const totalCarrinho = carrinho.reduce(
+        (total, item) =>
+            total + item.preco * item.quantidade,
+        0
+    )
 
-        {/* HEADER */}
-        <header className="border-b border-[#292929] bg-[#111111] shadow-lg">
+    // LIMPAR FILTROS
+    function limparFiltros() {
+        setBusca("")
+        setCategoriaSelecionada("Todas")
+        setStatusSelecionado("Todos")
+    }
 
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+    return (
+        <main className="min-h-screen bg-[#0b0b0b] text-white">
 
-                <div className="flex items-center gap-4">
-
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#b91c1c] shadow-lg shadow-red-950/30">
-                        <span className="text-2xl">
-                            🪓
-                        </span>
-                    </div>
-
-                    <div>
-                        <p className="text-xs font-bold tracking-[0.25em] text-[#b91c1c]">
-                            LUMBERJACK
-                        </p>
-
-                        <h1 className="text-2xl font-black uppercase tracking-wide text-white">
-                            Cardápio
-                        </h1>
-                    </div>
-
+            {/* =========================
+                MENSAGEM DO CARRINHO
+            ========================== */}
+            {mensagemCarrinho && (
+                <div className="fixed right-5 top-5 z-[9999] max-w-sm rounded-xl border border-green-400/30 bg-green-600 px-5 py-4 font-bold text-white shadow-2xl">
+                    {mensagemCarrinho}
                 </div>
-
-                <div className="rounded-lg border border-[#333] bg-[#1a1a1a] px-4 py-2">
-
-                    <span className="text-sm font-bold text-gray-300">
-                        {produtos.length}{" "}
-                        {produtos.length === 1
-                            ? "PRODUTO"
-                            : "PRODUTOS"}
-                    </span>
-
-                </div>
-
-            </div>
-
-        </header>
-
-        {/* LINHA VERMELHA */}
-        <div className="h-1 bg-[#b91c1c]" />
-
-        {/* CONTEÚDO */}
-        <section className="mx-auto max-w-7xl px-6 py-10">
-
-            {/* TÍTULO */}
-            <div className="mb-10 text-center">
-
-                <p className="text-xs font-black uppercase tracking-[0.4em] text-[#b91c1c]">
-                    LUMBERJACK
-                </p>
-
-                <h2 className="mt-2 text-2xl font-black uppercase tracking-widest text-white sm:text-3xl">
-                    Escolha seu lanche
-                </h2>
-
-                <div className="mx-auto mt-4 flex items-center justify-center gap-2">
-
-                    <div className="h-1 w-10 bg-[#b91c1c]" />
-                    <div className="h-1 w-3 bg-[#7f1d1d]" />
-                    <div className="h-1 w-2 bg-[#450a0a]" />
-
-                </div>
-
-            </div>
-
-            {/* CARREGANDO */}
-            {loading && (
-
-                <div className="flex min-h-[300px] flex-col items-center justify-center">
-
-                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#292929] border-t-[#b91c1c]" />
-
-                    <p className="mt-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-                        Carregando produtos...
-                    </p>
-
-                </div>
-
             )}
 
-            {/* ERRO */}
-            {!loading && erro && (
+            {/* =========================
+                HEADER
+            ========================== */}
+            <header className="sticky top-0 z-50 border-b border-red-600/20 bg-[#0b0b0b]/95 backdrop-blur">
+                <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
 
-                <div className="rounded-xl border border-red-900/50 bg-[#151515] px-6 py-16 text-center shadow-xl">
+                    <div className="flex items-center gap-3">
+                        <div className="text-3xl">
+                            🔨
+                        </div>
 
-                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-950/40 text-4xl">
-                        ⚠️
+                        <div>
+                            <h1 className="text-2xl font-black tracking-wide text-red-600">
+                                LUMBERJACK
+                            </h1>
+
+                            <p className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                                Cardápio
+                            </p>
+                        </div>
                     </div>
 
-                    <h2 className="mt-6 text-xl font-black uppercase text-white">
-                        Erro ao carregar
-                    </h2>
+                    {/* CARRINHO */}
+                    <button
+                        onClick={() =>
+                            setCarrinhoAberto(true)
+                        }
+                        className="relative flex items-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-black transition hover:bg-red-700"
+                    >
+                        🛒
+                        <span className="hidden sm:block">
+                            CARRINHO
+                        </span>
 
-                    <p className="mx-auto mt-3 max-w-lg text-gray-500">
-                        {erro}
+                        {quantidadeTotal > 0 && (
+                            <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-black text-red-600">
+                                {quantidadeTotal}
+                            </span>
+                        )}
+                    </button>
+                </div>
+            </header>
+
+            {/* =========================
+                CONTEÚDO
+            ========================== */}
+            <section className="mx-auto max-w-7xl px-5 py-10">
+
+                {/* TÍTULO */}
+                <div className="mb-8">
+                    <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-red-600">
+                        LUMBERJACK
                     </p>
 
+                    <h2 className="text-4xl font-black uppercase md:text-5xl">
+                        Escolha seu lanche
+                    </h2>
+
+                    <p className="mt-3 text-gray-400">
+                        Escolha seus favoritos e adicione ao carrinho.
+                    </p>
+                </div>
+
+                {/* =========================
+                    BUSCA
+                ========================== */}
+                <div className="mb-6">
+                    <input
+                        type="text"
+                        placeholder="🔎 Buscar produto..."
+                        value={busca}
+                        onChange={(e) =>
+                            setBusca(e.target.value)
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition placeholder:text-gray-500 focus:border-red-600"
+                    />
+                </div>
+
+                {/* =========================
+                    CATEGORIAS
+                ========================== */}
+                <div className="mb-4 flex flex-wrap gap-2">
+                    {categorias.map((categoria) => (
+                        <button
+                            key={categoria}
+                            onClick={() =>
+                                setCategoriaSelecionada(
+                                    categoria
+                                )
+                            }
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                                categoriaSelecionada ===
+                                categoria
+                                    ? "bg-red-600 text-white"
+                                    : "bg-white/5 text-gray-300 hover:bg-white/10"
+                            }`}
+                        >
+                            {categoria}
+                        </button>
+                    ))}
+                </div>
+
+                {/* =========================
+                    STATUS
+                ========================== */}
+                <div className="mb-8 flex flex-wrap gap-2">
                     <button
-                        type="button"
-                        onClick={mostrarProdutos}
-                        className="mt-6 rounded-lg bg-[#b91c1c] px-6 py-3 font-black uppercase tracking-wide text-white shadow-lg transition hover:bg-[#991b1b] active:scale-[0.98]"
+                        onClick={() =>
+                            setStatusSelecionado("Todos")
+                        }
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                            statusSelecionado === "Todos"
+                                ? "bg-white text-black"
+                                : "bg-white/5 text-gray-300 hover:bg-white/10"
+                        }`}
                     >
-                        Tentar novamente
+                        Todos
                     </button>
 
-                </div>
+                    <button
+                        onClick={() =>
+                            setStatusSelecionado("Disponíveis")
+                        }
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                            statusSelecionado ===
+                            "Disponíveis"
+                                ? "bg-green-600 text-white"
+                                : "bg-white/5 text-gray-300 hover:bg-white/10"
+                        }`}
+                    >
+                        🟢 Disponíveis
+                    </button>
 
-            )}
+                    <button
+                        onClick={() =>
+                            setStatusSelecionado("Indisponíveis")
+                        }
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                            statusSelecionado ===
+                            "Indisponíveis"
+                                ? "bg-red-600 text-white"
+                                : "bg-white/5 text-gray-300 hover:bg-white/10"
+                        }`}
+                    >
+                        🔴 Indisponíveis
+                    </button>
 
-            {/* NENHUM PRODUTO */}
-            {!loading && !erro && produtos.length === 0 && (
-
-                <div className="rounded-xl border border-[#292929] bg-[#151515] px-6 py-20 text-center shadow-xl">
-
-                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#202020] text-4xl">
-                        🪓
-                    </div>
-
-                    <h2 className="mt-6 text-xl font-black uppercase text-white">
-                        Nenhum produto cadastrado
-                    </h2>
-
-                    <p className="mt-2 text-gray-500">
-                        Os produtos disponíveis aparecerão aqui.
-                    </p>
-
-                </div>
-
-            )}
-
-            {/* GRID */}
-            {!loading && !erro && produtos.length > 0 && (
-
-                <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-                    {produtos.map((produto) => (
-
-                        <article
-                            key={produto.id}
-                            className="group overflow-hidden rounded-xl border border-[#303030] bg-[#171717] shadow-xl transition duration-300 hover:-translate-y-1 hover:border-[#b91c1c] hover:shadow-2xl hover:shadow-black"
+                    {(busca ||
+                        categoriaSelecionada !==
+                            "Todas" ||
+                        statusSelecionado !== "Todos") && (
+                        <button
+                            onClick={limparFiltros}
+                            className="rounded-lg px-4 py-2 text-sm font-bold text-gray-400 transition hover:text-white"
                         >
+                            Limpar filtros
+                        </button>
+                    )}
+                </div>
 
-                            {/* IMAGEM */}
-                            <div className="relative h-56 overflow-hidden bg-[#222222]">
+                {/* =========================
+                    CARREGANDO
+                ========================== */}
+                {carregando && (
+                    <div className="py-20 text-center">
+                        <div className="mb-4 text-5xl">
+                            🍔
+                        </div>
 
-                                {temImagem(produto.imagem) ? (
+                        <p className="font-bold text-gray-400">
+                            Carregando cardápio...
+                        </p>
+                    </div>
+                )}
 
-                                    <img
-                                        src={produto.imagem}
-                                        alt={produto.descricao}
-                                        className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                                        onError={(event) => {
-                                            event.currentTarget.style.display = "none"
-                                        }}
-                                    />
+                {/* =========================
+                    ERRO
+                ========================== */}
+                {!carregando && erro && (
+                    <div className="rounded-xl border border-red-600/30 bg-red-600/10 p-8 text-center">
+                        <p className="mb-5 font-bold text-red-500">
+                            {erro}
+                        </p>
 
-                                ) : (
+                        <button
+                            onClick={carregarProdutos}
+                            className="rounded-lg bg-red-600 px-6 py-3 font-black transition hover:bg-red-700"
+                        >
+                            TENTAR NOVAMENTE
+                        </button>
+                    </div>
+                )}
 
-                                    <div className="flex h-full items-center justify-center">
-                                        <span className="text-5xl">
-                                            🪓
-                                        </span>
-                                    </div>
-
-                                )}
-
-                                {/* SOMBRA */}
-                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-
-                                {/* CATEGORIA */}
-                                <span className="absolute left-4 top-4 rounded-md border border-red-800/50 bg-[#991b1b]/90 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
-                                    {produto.categoria}
-                                </span>
-
+                {/* =========================
+                    PRODUTOS
+                ========================== */}
+                {!carregando &&
+                    !erro &&
+                    produtosFiltrados.length > 0 && (
+                        <>
+                            <div className="mb-5 flex items-center justify-between">
+                                <p className="text-sm text-gray-500">
+                                    {produtosFiltrados.length}{" "}
+                                    produto
+                                    {produtosFiltrados.length !==
+                                    1
+                                        ? "s"
+                                        : ""}{" "}
+                                    encontrado
+                                    {produtosFiltrados.length !==
+                                    1
+                                        ? "s"
+                                        : ""}
+                                </p>
                             </div>
 
-                            {/* INFORMAÇÕES */}
-                            <div className="p-5">
+                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
-                                <h2
-                                    className="truncate text-xl font-black uppercase tracking-wide text-white"
-                                    title={produto.descricao}
-                                >
-                                    {produto.descricao}
+                                {produtosFiltrados.map(
+                                    (produto) => {
+                                        const disponivel =
+                                            Boolean(
+                                                produto.disponivel
+                                            )
+
+                                        return (
+                                            <article
+                                                key={
+                                                    produto.id
+                                                }
+                                                className={`group overflow-hidden rounded-2xl border border-white/10 bg-[#121212] transition ${
+                                                    disponivel
+                                                        ? "hover:-translate-y-1 hover:border-red-600/50"
+                                                        : "opacity-80"
+                                                }`}
+                                            >
+                                                {/* IMAGEM */}
+                                                <div className="relative aspect-square overflow-hidden bg-[#1a1a1a]">
+
+                                                    {temImagem(
+                                                        produto.imagem
+                                                    ) ? (
+                                                        <img
+                                                            src={
+                                                                produto.imagem
+                                                            }
+                                                            alt={
+                                                                produto.descricao
+                                                            }
+                                                            className={`h-full w-full object-cover transition duration-500 ${
+                                                                disponivel
+                                                                    ? "group-hover:scale-105"
+                                                                    : "grayscale"
+                                                            }`}
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-full w-full items-center justify-center text-7xl">
+                                                            🍔
+                                                        </div>
+                                                    )}
+
+                                                    {/* STATUS */}
+                                                    <div
+                                                        className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-black uppercase ${
+                                                            disponivel
+                                                                ? "bg-green-600 text-white"
+                                                                : "bg-red-600 text-white"
+                                                        }`}
+                                                    >
+                                                        {disponivel
+                                                            ? "Disponível"
+                                                            : "Indisponível"}
+                                                    </div>
+                                                </div>
+
+                                                {/* INFORMAÇÕES */}
+                                                <div className="p-5">
+
+                                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-red-600">
+                                                        {
+                                                            produto.categoria
+                                                        }
+                                                    </p>
+
+                                                    <h3 className="mb-3 text-xl font-black uppercase">
+                                                        {
+                                                            produto.descricao
+                                                        }
+                                                    </h3>
+
+                                                    <div className="mb-5 text-2xl font-black">
+                                                        {formatarPreco(
+                                                            produto.preco
+                                                        )}
+                                                    </div>
+
+                                                    {/* BOTÃO */}
+                                                    {disponivel ? (
+                                                        <button
+                                                            onClick={() =>
+                                                                adicionarAoCarrinho(
+                                                                    produto
+                                                                )
+                                                            }
+                                                            className="w-full rounded-lg bg-red-600 px-4 py-3 font-black transition hover:bg-red-700 active:scale-95"
+                                                        >
+                                                            🛒 Fazer pedido
+                                                        </button>
+                                                    ) : (
+                                                        <div className="w-full rounded-lg bg-white/5 px-4 py-3 text-center font-black text-gray-500">
+                                                            ✕ Indisponível
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </article>
+                                        )
+                                    }
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                {/* =========================
+                    NENHUM PRODUTO
+                ========================== */}
+                {!carregando &&
+                    !erro &&
+                    produtosFiltrados.length === 0 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 py-20 text-center">
+                            <div className="mb-4 text-6xl">
+                                🔎
+                            </div>
+
+                            <h3 className="mb-2 text-2xl font-black">
+                                Nenhum produto encontrado
+                            </h3>
+
+                            <p className="mb-6 text-gray-500">
+                                Tente mudar os filtros ou fazer
+                                outra busca.
+                            </p>
+
+                            <button
+                                onClick={limparFiltros}
+                                className="rounded-lg bg-red-600 px-6 py-3 font-black transition hover:bg-red-700"
+                            >
+                                LIMPAR FILTROS
+                            </button>
+                        </div>
+                    )}
+            </section>
+
+            {/* =========================
+                CARRINHO
+            ========================== */}
+            {carrinhoAberto && (
+                <div className="fixed inset-0 z-[100]">
+
+                    {/* FUNDO */}
+                    <div
+                        onClick={() =>
+                            setCarrinhoAberto(false)
+                        }
+                        className="absolute inset-0 bg-black/70"
+                    />
+
+                    {/* PAINEL */}
+                    <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#101010] shadow-2xl">
+
+                        {/* CABEÇALHO */}
+                        <div className="flex items-center justify-between border-b border-white/10 p-5">
+                            <div>
+                                <h2 className="text-2xl font-black uppercase">
+                                    Seu carrinho
                                 </h2>
 
-                                {/* DETALHE */}
-                                <div className="mt-3 flex items-center gap-2">
-
-                                    <div className="h-1 w-8 bg-[#b91c1c]" />
-                                    <div className="h-1 w-2 bg-[#7f1d1d]" />
-                                    <div className="h-1 w-2 bg-[#450a0a]" />
-
-                                </div>
-
-                                {/* PREÇO */}
-                                <p className="mt-5 text-2xl font-black text-[#dc2626]">
-                                    R$ {formatarPreco(produto.preco)}
+                                <p className="text-sm text-gray-500">
+                                    {quantidadeTotal}{" "}
+                                    item
+                                    {quantidadeTotal !== 1
+                                        ? "s"
+                                        : ""}
                                 </p>
-
-                                {/* DIVISÓRIA */}
-                                <div className="my-5 border-t border-[#292929]" />
-
-                                {/* FAZER PEDIDO */}
-                                <button
-                                    type="button"
-                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#b91c1c] py-3 font-black uppercase tracking-wide text-white shadow-lg shadow-red-950/20 transition hover:bg-[#991b1b] active:scale-[0.98]"
-                                >
-
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                    >
-
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 2h12m-5 4a1 1 0 11-2 0 1 1 0 012 0zm6 0a1 1 0 11-2 0 1 1 0 012 0z"
-                                        />
-
-                                    </svg>
-
-                                    Fazer pedido
-
-                                </button>
-
                             </div>
 
-                        </article>
+                            <button
+                                onClick={() =>
+                                    setCarrinhoAberto(
+                                        false
+                                    )
+                                }
+                                className="rounded-lg bg-white/5 px-4 py-2 text-xl transition hover:bg-white/10"
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                    ))}
+                        {/* ITENS */}
+                        <div className="flex-1 overflow-y-auto p-5">
 
+                            {carrinho.length === 0 ? (
+                                <div className="flex h-full flex-col items-center justify-center text-center">
+                                    <div className="mb-5 text-7xl">
+                                        🛒
+                                    </div>
+
+                                    <h3 className="mb-2 text-xl font-black">
+                                        Seu carrinho está vazio
+                                    </h3>
+
+                                    <p className="text-gray-500">
+                                        Adicione algum produto
+                                        para começar.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+
+                                    {carrinho.map(
+                                        (item) => (
+                                            <div
+                                                key={
+                                                    item.id
+                                                }
+                                                className="rounded-xl border border-white/10 bg-white/5 p-4"
+                                            >
+                                                <div className="flex gap-4">
+
+                                                    {/* IMAGEM */}
+                                                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-black">
+                                                        {temImagem(
+                                                            item.imagem
+                                                        ) ? (
+                                                            <img
+                                                                src={
+                                                                    item.imagem
+                                                                }
+                                                                alt={
+                                                                    item.descricao
+                                                                }
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex h-full items-center justify-center text-3xl">
+                                                                🍔
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* INFO */}
+                                                    <div className="min-w-0 flex-1">
+
+                                                        <h3 className="truncate font-black uppercase">
+                                                            {
+                                                                item.descricao
+                                                            }
+                                                        </h3>
+
+                                                        <p className="mt-1 font-bold text-red-500">
+                                                            {formatarPreco(
+                                                                item.preco
+                                                            )}
+                                                        </p>
+
+                                                        {/* QUANTIDADE */}
+                                                        <div className="mt-3 flex items-center gap-2">
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    diminuirQuantidade(
+                                                                        item.id
+                                                                    )
+                                                                }
+                                                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 font-black hover:bg-white/20"
+                                                            >
+                                                                −
+                                                            </button>
+
+                                                            <span className="w-6 text-center font-black">
+                                                                {
+                                                                    item.quantidade
+                                                                }
+                                                            </span>
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    aumentarQuantidade(
+                                                                        item.id
+                                                                    )
+                                                                }
+                                                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 font-black hover:bg-white/20"
+                                                            >
+                                                                +
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() =>
+                                                                    removerDoCarrinho(
+                                                                        item.id
+                                                                    )
+                                                                }
+                                                                className="ml-auto text-sm font-bold text-red-500 hover:text-red-400"
+                                                            >
+                                                                Remover
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RODAPÉ DO CARRINHO */}
+                        {carrinho.length > 0 && (
+                            <div className="border-t border-white/10 p-5">
+
+                                <div className="mb-4 flex items-center justify-between">
+                                    <span className="font-bold text-gray-400">
+                                        Total
+                                    </span>
+
+                                    <span className="text-2xl font-black text-red-500">
+                                        {formatarPreco(
+                                            totalCarrinho
+                                        )}
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={() =>
+                                        alert(
+                                            "Pedido pronto! A finalização do pedido ainda precisa ser conectada ao sistema."
+                                        )
+                                    }
+                                    className="w-full rounded-lg bg-red-600 px-5 py-4 font-black transition hover:bg-red-700"
+                                >
+                                    FINALIZAR PEDIDO
+                                </button>
+                            </div>
+                        )}
+                    </aside>
                 </div>
-
             )}
 
-        </section>
+            {/* =========================
+                FOOTER
+            ========================== */}
+            <footer className="border-t border-white/10 bg-black px-5 py-10">
+                <div className="mx-auto max-w-7xl">
 
-        {/* FOOTER */}
-        <footer className="border-t border-[#292929] bg-[#111111] py-8 text-center">
+                    <div className="grid gap-8 md:grid-cols-2">
 
-            <div className="mb-3 text-xl">
-                🪓
-            </div>
+                        <div>
+                            <div className="mb-3 flex items-center gap-3">
+                                <span className="text-3xl">
+                                    🔨
+                                </span>
 
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#b91c1c]">
-                Lumberjack
-            </p>
+                                <span className="text-xl font-black text-red-600">
+                                    LUMBERJACK
+                                </span>
+                            </div>
 
-            <div className="mx-auto mt-5 max-w-xl border-t border-[#292929] pt-5">
+                            <p className="max-w-md text-sm leading-6 text-gray-500">
+                                Sabor de verdade, feito para quem
+                                gosta de um bom lanche.
+                            </p>
+                        </div>
 
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-500">
-                    📍 Localização
-                </p>
+                        <div className="md:text-right">
+                            <h3 className="mb-3 font-black uppercase">
+                                Nossa localização
+                            </h3>
 
-                <p className="mt-2 px-4 text-sm leading-relaxed text-gray-400">
-                    Av. da Integração Ayrton Senna, 1126A
-                    <br />
-                    Caminho do Sol, Petrolina - PE
-                    <br />
-                    CEP 56302-970
-                </p>
+                            <p className="text-sm leading-6 text-gray-500">
+                                Av. da Integração Ayrton Senna,
+                                1126A
+                                <br />
+                                Caminho do Sol,
+                                Petrolina - PE
+                                <br />
+                                CEP 56302-970
+                            </p>
+                        </div>
+                    </div>
 
-            </div>
-
-        </footer>
-
-    </main>
-)
-
-
+                    <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-gray-600">
+                        © {new Date().getFullYear()}{" "}
+                        LUMBERJACK. Todos os direitos reservados.
+                    </div>
+                </div>
+            </footer>
+        </main>
+    )
 }

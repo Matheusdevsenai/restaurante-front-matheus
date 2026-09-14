@@ -23,6 +23,10 @@ export default function CardapioAdmin() {
     const [busca, setBusca] = useState("")
     const [categoriaSelecionada, setCategoriaSelecionada] = useState("Todas")
 
+    // NOVO: filtro de disponibilidade
+    const [statusSelecionado, setStatusSelecionado] = useState("Todos")
+
+
     async function carregarProdutos() {
 
         try {
@@ -55,9 +59,12 @@ export default function CardapioAdmin() {
             setCarregando(false)
 
         }
+
     }
 
+
     // ALTERAR DISPONIBILIDADE
+
     async function alterarDisponibilidade(
         id: number,
         disponivelAtual: boolean | number
@@ -87,6 +94,7 @@ export default function CardapioAdmin() {
             }
 
             // Atualiza a tela
+
             setProdutos((produtosAtuais) =>
                 produtosAtuais.map((produto) =>
                     produto.id === id
@@ -112,9 +120,12 @@ export default function CardapioAdmin() {
             })
 
         }
+
     }
 
+
     // EXCLUIR PRODUTO
+
     async function excluirProduto(id: number) {
 
         const produto = produtos.find(
@@ -147,9 +158,11 @@ export default function CardapioAdmin() {
 
         })
 
+
         if (!resultado.isConfirmed) {
             return
         }
+
 
         try {
 
@@ -166,6 +179,7 @@ export default function CardapioAdmin() {
                 )
             }
 
+
             setProdutos((produtosAtuais) =>
                 produtosAtuais.filter(
                     (produto) =>
@@ -173,13 +187,21 @@ export default function CardapioAdmin() {
                 )
             )
 
+
             Swal.fire({
+
                 title: "Produto excluído!",
+
                 text: "O produto foi removido com sucesso.",
+
                 icon: "success",
+
                 background: "#181818",
+
                 color: "#fff",
+
                 confirmButtonColor: "#b91c1c",
+
             })
 
         } catch (error) {
@@ -187,65 +209,137 @@ export default function CardapioAdmin() {
             console.error(error)
 
             Swal.fire({
+
                 title: "Erro!",
+
                 text: "Não foi possível excluir o produto.",
+
                 icon: "error",
+
                 background: "#181818",
+
                 color: "#fff",
+
                 confirmButtonColor: "#b91c1c",
+
             })
 
         }
+
     }
 
+
     useEffect(() => {
+
         carregarProdutos()
+
     }, [])
+
 
     /*
      * CATEGORIAS
      */
 
     const categorias = [
+
         "Todas",
 
         ...Array.from(
+
             new Set(
+
                 produtos.map(
                     (produto) =>
                         produto.categoria
                 )
+
             )
+
         ),
+
     ]
+
 
     /*
      * FILTROS
      */
 
-    const produtosFiltrados =
-        produtos.filter(
-            (produto) => {
+    const produtosFiltrados = produtos.filter(
+        (produto) => {
 
-                const correspondeBusca =
-                    produto.descricao
-                        .toLowerCase()
-                        .includes(
-                            busca.toLowerCase()
-                        )
+            const correspondeBusca =
+                produto.descricao
+                    .toLowerCase()
+                    .includes(
+                        busca.toLowerCase()
+                    )
 
-                const correspondeCategoria =
-                    categoriaSelecionada ===
-                        "Todas" ||
-                    produto.categoria ===
-                        categoriaSelecionada
 
-                return (
-                    correspondeBusca &&
-                    correspondeCategoria
+            const correspondeCategoria =
+                categoriaSelecionada ===
+                    "Todas" ||
+
+                produto.categoria ===
+                    categoriaSelecionada
+
+
+            // NOVO: verifica disponibilidade
+
+            const disponivel =
+                Boolean(produto.disponivel)
+
+
+            const correspondeStatus =
+                statusSelecionado === "Todos" ||
+
+                (
+                    statusSelecionado ===
+                        "Disponíveis" &&
+                    disponivel
+                ) ||
+
+                (
+                    statusSelecionado ===
+                        "Indisponíveis" &&
+                    !disponivel
                 )
-            }
-        )
+
+
+            return (
+
+                correspondeBusca &&
+
+                correspondeCategoria &&
+
+                correspondeStatus
+
+            )
+
+        }
+    )
+
+
+    /*
+     * ESTATÍSTICAS
+     */
+
+    const totalProdutos =
+        produtos.length
+
+
+    const produtosDisponiveis =
+        produtos.filter(
+            (produto) =>
+                Boolean(produto.disponivel)
+        ).length
+
+
+    const produtosIndisponiveis =
+        produtos.filter(
+            (produto) =>
+                !Boolean(produto.disponivel)
+        ).length
+
 
     /*
      * LOADING
@@ -268,18 +362,23 @@ export default function CardapioAdmin() {
                 </div>
 
             </main>
+
         )
+
     }
+
 
     return (
 
         <main className="min-h-screen bg-[#0b0b0b] text-white">
+
 
             {/* HEADER */}
 
             <header className="border-b border-[#292929] bg-[#111111] shadow-lg">
 
                 <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+
 
                     <div className="flex items-center gap-4">
 
@@ -290,6 +389,7 @@ export default function CardapioAdmin() {
                             </span>
 
                         </div>
+
 
                         <div>
 
@@ -305,9 +405,11 @@ export default function CardapioAdmin() {
 
                     </div>
 
+
                     <div className="flex items-center gap-3">
 
-                        {/* TOTAL */}
+
+                        {/* TOTAL NO HEADER */}
 
                         <div className="rounded-lg border border-[#333] bg-[#1a1a1a] px-4 py-3">
 
@@ -323,13 +425,16 @@ export default function CardapioAdmin() {
 
                         </div>
 
+
                         {/* NOVO PRODUTO */}
 
                         <a
                             href="/admin/cadastrar"
                             className="rounded-lg bg-[#b91c1c] px-5 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg transition hover:bg-[#991b1b]"
                         >
+
                             + Novo produto
+
                         </a>
 
                     </div>
@@ -338,13 +443,16 @@ export default function CardapioAdmin() {
 
             </header>
 
+
             {/* LINHA VERMELHA */}
 
             <div className="h-1 bg-[#b91c1c]" />
 
+
             {/* CONTEÚDO */}
 
             <section className="mx-auto max-w-7xl px-6 py-10">
+
 
                 {/* TÍTULO */}
 
@@ -362,23 +470,58 @@ export default function CardapioAdmin() {
 
                 </div>
 
-                {/* TOTAL DE PRODUTOS */}
 
-                <div className="mb-8">
+                {/* ESTATÍSTICAS */}
 
-                    <div className="w-full rounded-xl border border-[#303030] bg-[#171717] p-5 sm:w-64">
+                <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+
+                    {/* TOTAL */}
+
+                    <div className="rounded-xl border border-[#303030] bg-[#171717] p-5">
 
                         <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
                             Total de produtos
                         </p>
 
                         <p className="mt-2 text-3xl font-black text-white">
-                            {produtos.length}
+                            {totalProdutos}
+                        </p>
+
+                    </div>
+
+
+                    {/* DISPONÍVEIS */}
+
+                    <div className="rounded-xl border border-green-900/50 bg-[#171717] p-5">
+
+                        <p className="text-xs font-bold uppercase tracking-wider text-green-500">
+                            Disponíveis
+                        </p>
+
+                        <p className="mt-2 text-3xl font-black text-green-500">
+                            {produtosDisponiveis}
+                        </p>
+
+                    </div>
+
+
+                    {/* INDISPONÍVEIS */}
+
+                    <div className="rounded-xl border border-red-900/50 bg-[#171717] p-5">
+
+                        <p className="text-xs font-bold uppercase tracking-wider text-red-500">
+                            Indisponíveis
+                        </p>
+
+                        <p className="mt-2 text-3xl font-black text-red-500">
+                            {produtosIndisponiveis}
                         </p>
 
                     </div>
 
                 </div>
+
 
                 {/* BUSCA */}
 
@@ -406,9 +549,10 @@ export default function CardapioAdmin() {
 
                 </div>
 
+
                 {/* CATEGORIAS */}
 
-                <div className="mb-8 flex flex-wrap gap-2">
+                <div className="mb-5 flex flex-wrap gap-2">
 
                     {categorias.map(
                         (categoria) => (
@@ -428,13 +572,89 @@ export default function CardapioAdmin() {
                                         : "border border-[#333] bg-[#171717] text-gray-400 hover:border-[#555] hover:text-white"
                                 }`}
                             >
+
                                 {categoria}
+
                             </button>
 
                         )
                     )}
 
                 </div>
+
+
+                {/* FILTRO DE DISPONIBILIDADE */}
+
+                <div className="mb-8 flex flex-wrap gap-2">
+
+
+                    {/* TODOS */}
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setStatusSelecionado(
+                                "Todos"
+                            )
+                        }
+                        className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition ${
+                            statusSelecionado ===
+                            "Todos"
+                                ? "bg-[#b91c1c] text-white"
+                                : "border border-[#333] bg-[#171717] text-gray-400 hover:border-[#555] hover:text-white"
+                        }`}
+                    >
+
+                        Todos
+
+                    </button>
+
+
+                    {/* DISPONÍVEIS */}
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setStatusSelecionado(
+                                "Disponíveis"
+                            )
+                        }
+                        className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition ${
+                            statusSelecionado ===
+                            "Disponíveis"
+                                ? "bg-green-600 text-white"
+                                : "border border-green-900/50 bg-[#171717] text-green-500 hover:border-green-700"
+                        }`}
+                    >
+
+                        🟢 Disponíveis
+
+                    </button>
+
+
+                    {/* INDISPONÍVEIS */}
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setStatusSelecionado(
+                                "Indisponíveis"
+                            )
+                        }
+                        className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition ${
+                            statusSelecionado ===
+                            "Indisponíveis"
+                                ? "bg-red-700 text-white"
+                                : "border border-red-900/50 bg-[#171717] text-red-500 hover:border-red-700"
+                        }`}
+                    >
+
+                        🔴 Indisponíveis
+
+                    </button>
+
+                </div>
+
 
                 {/* PRODUTOS */}
 
@@ -451,7 +671,7 @@ export default function CardapioAdmin() {
                         </h2>
 
                         <p className="mt-2 text-gray-500">
-                            Tente buscar por outro nome ou categoria.
+                            Tente buscar por outro nome, categoria ou disponibilidade.
                         </p>
 
                     </div>
@@ -460,6 +680,7 @@ export default function CardapioAdmin() {
 
                     <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
+
                         {produtosFiltrados.map(
                             (produto) => {
 
@@ -467,6 +688,7 @@ export default function CardapioAdmin() {
                                     Boolean(
                                         produto.disponivel
                                     )
+
 
                                 return (
 
@@ -478,6 +700,7 @@ export default function CardapioAdmin() {
                                                 : "border-red-900/60 opacity-75"
                                         }`}
                                     >
+
 
                                         {/* IMAGEM */}
 
@@ -497,17 +720,17 @@ export default function CardapioAdmin() {
 
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
+
                                             {/* CATEGORIA */}
 
                                             <span className="absolute left-4 top-4 rounded-md border border-red-800/50 bg-[#991b1b]/90 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
 
-                                                {
-                                                    produto.categoria
-                                                }
+                                                {produto.categoria}
 
                                             </span>
 
-                                            {/* STATUS NA IMAGEM */}
+
+                                            {/* STATUS */}
 
                                             <span
                                                 className={`absolute right-4 top-4 rounded-md px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-lg ${
@@ -516,24 +739,27 @@ export default function CardapioAdmin() {
                                                         : "bg-red-700 text-white"
                                                 }`}
                                             >
+
                                                 {disponivel
                                                     ? "Disponível"
                                                     : "Indisponível"}
+
                                             </span>
 
                                         </div>
+
 
                                         {/* INFORMAÇÕES */}
 
                                         <div className="p-5">
 
+
                                             <h2 className="truncate text-xl font-black uppercase tracking-wide text-white">
 
-                                                {
-                                                    produto.descricao
-                                                }
+                                                {produto.descricao}
 
                                             </h2>
+
 
                                             {/* DETALHE */}
 
@@ -546,6 +772,7 @@ export default function CardapioAdmin() {
                                                 <div className="h-1 w-2 bg-[#450a0a]" />
 
                                             </div>
+
 
                                             {/* PREÇO */}
 
@@ -564,7 +791,9 @@ export default function CardapioAdmin() {
 
                                             </p>
 
+
                                             <div className="my-5 border-t border-[#292929]" />
+
 
                                             {/* BOTÃO DISPONIBILIDADE */}
 
@@ -582,14 +811,18 @@ export default function CardapioAdmin() {
                                                         : "bg-red-700 text-white hover:bg-red-800"
                                                 }`}
                                             >
+
                                                 {disponivel
                                                     ? "✓ Disponível"
                                                     : "✕ Indisponível"}
+
                                             </button>
+
 
                                             {/* BOTÕES */}
 
                                             <div className="grid grid-cols-2 gap-3">
+
 
                                                 {/* EDITAR */}
 
@@ -597,8 +830,11 @@ export default function CardapioAdmin() {
                                                     href={`/admin/editar/${produto.id}`}
                                                     className="flex items-center justify-center rounded-lg border border-[#444] bg-[#222] py-3 text-xs font-black uppercase tracking-wide text-gray-300 transition hover:bg-[#333] hover:text-white"
                                                 >
+
                                                     ✏️ Editar
+
                                                 </a>
+
 
                                                 {/* EXCLUIR */}
 
@@ -611,7 +847,9 @@ export default function CardapioAdmin() {
                                                     }
                                                     className="flex items-center justify-center rounded-lg border border-red-900/60 bg-[#451010] py-3 text-xs font-black uppercase tracking-wide text-red-400 transition hover:border-red-600 hover:bg-[#7f1d1d] hover:text-white"
                                                 >
+
                                                     🗑️ Excluir
+
                                                 </button>
 
                                             </div>
@@ -621,6 +859,7 @@ export default function CardapioAdmin() {
                                     </article>
 
                                 )
+
                             }
                         )}
 
@@ -629,6 +868,7 @@ export default function CardapioAdmin() {
                 )}
 
             </section>
+
 
             {/* FOOTER */}
 
@@ -641,5 +881,7 @@ export default function CardapioAdmin() {
             </footer>
 
         </main>
+
     )
+
 }
