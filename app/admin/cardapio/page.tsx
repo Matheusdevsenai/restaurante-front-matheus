@@ -10,6 +10,7 @@ interface Produto {
     categoria: string
     preco: number
     imagem: string
+    disponivel: boolean | number
 }
 
 const API_URL = "http://localhost:3001/produtos"
@@ -56,6 +57,64 @@ export default function CardapioAdmin() {
         }
     }
 
+    // ALTERAR DISPONIBILIDADE
+    async function alterarDisponibilidade(
+        id: number,
+        disponivelAtual: boolean | number
+    ) {
+
+        const novoStatus = !Boolean(disponivelAtual)
+
+        try {
+
+            const response = await fetch(
+                `${API_URL}/${id}/disponibilidade`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        disponivel: novoStatus,
+                    }),
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error(
+                    "Erro ao alterar disponibilidade"
+                )
+            }
+
+            // Atualiza a tela
+            setProdutos((produtosAtuais) =>
+                produtosAtuais.map((produto) =>
+                    produto.id === id
+                        ? {
+                              ...produto,
+                              disponivel: novoStatus,
+                          }
+                        : produto
+                )
+            )
+
+        } catch (error) {
+
+            console.error(error)
+
+            Swal.fire({
+                title: "Erro!",
+                text: "Não foi possível alterar a disponibilidade.",
+                icon: "error",
+                background: "#181818",
+                color: "#fff",
+                confirmButtonColor: "#b91c1c",
+            })
+
+        }
+    }
+
+    // EXCLUIR PRODUTO
     async function excluirProduto(id: number) {
 
         const produto = produtos.find(
@@ -102,12 +161,15 @@ export default function CardapioAdmin() {
             )
 
             if (!response.ok) {
-                throw new Error("Erro ao excluir produto")
+                throw new Error(
+                    "Erro ao excluir produto"
+                )
             }
 
             setProdutos((produtosAtuais) =>
                 produtosAtuais.filter(
-                    (produto) => produto.id !== id
+                    (produto) =>
+                        produto.id !== id
                 )
             )
 
@@ -150,7 +212,8 @@ export default function CardapioAdmin() {
         ...Array.from(
             new Set(
                 produtos.map(
-                    (produto) => produto.categoria
+                    (produto) =>
+                        produto.categoria
                 )
             )
         ),
@@ -160,26 +223,29 @@ export default function CardapioAdmin() {
      * FILTROS
      */
 
-    const produtosFiltrados = produtos.filter(
-        (produto) => {
+    const produtosFiltrados =
+        produtos.filter(
+            (produto) => {
 
-            const correspondeBusca =
-                produto.descricao
-                    .toLowerCase()
-                    .includes(
-                        busca.toLowerCase()
-                    )
+                const correspondeBusca =
+                    produto.descricao
+                        .toLowerCase()
+                        .includes(
+                            busca.toLowerCase()
+                        )
 
-            const correspondeCategoria =
-                categoriaSelecionada === "Todas" ||
-                produto.categoria === categoriaSelecionada
+                const correspondeCategoria =
+                    categoriaSelecionada ===
+                        "Todas" ||
+                    produto.categoria ===
+                        categoriaSelecionada
 
-            return (
-                correspondeBusca &&
-                correspondeCategoria
-            )
-        }
-    )
+                return (
+                    correspondeBusca &&
+                    correspondeCategoria
+                )
+            }
+        )
 
     /*
      * LOADING
@@ -328,7 +394,9 @@ export default function CardapioAdmin() {
                             type="text"
                             value={busca}
                             onChange={(e) =>
-                                setBusca(e.target.value)
+                                setBusca(
+                                    e.target.value
+                                )
                             }
                             placeholder="Buscar produto..."
                             className="w-full rounded-xl border border-[#303030] bg-[#171717] py-4 pl-12 pr-4 text-white outline-none transition placeholder:text-gray-600 focus:border-[#b91c1c]"
@@ -354,7 +422,8 @@ export default function CardapioAdmin() {
                                     )
                                 }
                                 className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wide transition ${
-                                    categoriaSelecionada === categoria
+                                    categoriaSelecionada ===
+                                    categoria
                                         ? "bg-[#b91c1c] text-white"
                                         : "border border-[#333] bg-[#171717] text-gray-400 hover:border-[#555] hover:text-white"
                                 }`}
@@ -392,107 +461,167 @@ export default function CardapioAdmin() {
                     <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
                         {produtosFiltrados.map(
-                            (produto) => (
+                            (produto) => {
 
-                                <article
-                                    key={produto.id}
-                                    className="group overflow-hidden rounded-xl border border-[#303030] bg-[#171717] shadow-xl transition duration-300 hover:-translate-y-1 hover:border-[#b91c1c] hover:shadow-2xl hover:shadow-black"
-                                >
+                                const disponivel =
+                                    Boolean(
+                                        produto.disponivel
+                                    )
 
-                                    {/* IMAGEM */}
+                                return (
 
-                                    <div className="relative h-56 overflow-hidden bg-[#111111]">
+                                    <article
+                                        key={produto.id}
+                                        className={`group overflow-hidden rounded-xl border bg-[#171717] shadow-xl transition duration-300 hover:-translate-y-1 ${
+                                            disponivel
+                                                ? "border-[#303030] hover:border-[#b91c1c]"
+                                                : "border-red-900/60 opacity-75"
+                                        }`}
+                                    >
 
-                                        <Image
-                                            src={produto.imagem}
-                                            alt={produto.descricao}
-                                            fill
-                                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                                            className="object-contain p-5 transition duration-500 group-hover:scale-105"
-                                        />
+                                        {/* IMAGEM */}
 
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                                        <div className="relative h-56 overflow-hidden bg-[#111111]">
 
-                                        {/* CATEGORIA */}
+                                            <Image
+                                                src={
+                                                    produto.imagem
+                                                }
+                                                alt={
+                                                    produto.descricao
+                                                }
+                                                fill
+                                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                                                className="object-contain p-5 transition duration-500 group-hover:scale-105"
+                                            />
 
-                                        <span className="absolute left-4 top-4 rounded-md border border-red-800/50 bg-[#991b1b]/90 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                                            {produto.categoria}
+                                            {/* CATEGORIA */}
 
-                                        </span>
+                                            <span className="absolute left-4 top-4 rounded-md border border-red-800/50 bg-[#991b1b]/90 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
 
-                                    </div>
+                                                {
+                                                    produto.categoria
+                                                }
 
-                                    {/* INFORMAÇÕES */}
+                                            </span>
 
-                                    <div className="p-5">
+                                            {/* STATUS NA IMAGEM */}
 
-                                        <h2 className="truncate text-xl font-black uppercase tracking-wide text-white">
-
-                                            {produto.descricao}
-
-                                        </h2>
-
-                                        {/* DETALHE */}
-
-                                        <div className="mt-3 flex items-center gap-2">
-
-                                            <div className="h-1 w-8 bg-[#b91c1c]" />
-
-                                            <div className="h-1 w-2 bg-[#7f1d1d]" />
-
-                                            <div className="h-1 w-2 bg-[#450a0a]" />
+                                            <span
+                                                className={`absolute right-4 top-4 rounded-md px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-lg ${
+                                                    disponivel
+                                                        ? "bg-green-600 text-white"
+                                                        : "bg-red-700 text-white"
+                                                }`}
+                                            >
+                                                {disponivel
+                                                    ? "Disponível"
+                                                    : "Indisponível"}
+                                            </span>
 
                                         </div>
 
-                                        {/* PREÇO */}
+                                        {/* INFORMAÇÕES */}
 
-                                        <p className="mt-5 text-2xl font-black text-[#dc2626]">
+                                        <div className="p-5">
 
-                                            R${" "}
+                                            <h2 className="truncate text-xl font-black uppercase tracking-wide text-white">
 
-                                            {Number(produto.preco)
-                                                .toFixed(2)
-                                                .replace(".", ",")}
+                                                {
+                                                    produto.descricao
+                                                }
 
-                                        </p>
+                                            </h2>
 
-                                        <div className="my-5 border-t border-[#292929]" />
+                                            {/* DETALHE */}
 
-                                        {/* BOTÕES */}
+                                            <div className="mt-3 flex items-center gap-2">
 
-                                        <div className="grid grid-cols-2 gap-3">
+                                                <div className="h-1 w-8 bg-[#b91c1c]" />
 
-                                            {/* EDITAR */}
+                                                <div className="h-1 w-2 bg-[#7f1d1d]" />
 
-                                            <a
-                                                href={`/admin/editar/${produto.id}`}
-                                                className="flex items-center justify-center rounded-lg border border-[#444] bg-[#222] py-3 text-xs font-black uppercase tracking-wide text-gray-300 transition hover:bg-[#333] hover:text-white"
-                                            >
-                                                ✏️ Editar
-                                            </a>
+                                                <div className="h-1 w-2 bg-[#450a0a]" />
 
-                                            {/* EXCLUIR */}
+                                            </div>
+
+                                            {/* PREÇO */}
+
+                                            <p className="mt-5 text-2xl font-black text-[#dc2626]">
+
+                                                R${" "}
+
+                                                {Number(
+                                                    produto.preco
+                                                )
+                                                    .toFixed(2)
+                                                    .replace(
+                                                        ".",
+                                                        ","
+                                                    )}
+
+                                            </p>
+
+                                            <div className="my-5 border-t border-[#292929]" />
+
+                                            {/* BOTÃO DISPONIBILIDADE */}
 
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    excluirProduto(
-                                                        produto.id
+                                                    alterarDisponibilidade(
+                                                        produto.id,
+                                                        produto.disponivel
                                                     )
                                                 }
-                                                className="flex items-center justify-center rounded-lg border border-red-900/60 bg-[#451010] py-3 text-xs font-black uppercase tracking-wide text-red-400 transition hover:border-red-600 hover:bg-[#7f1d1d] hover:text-white"
+                                                className={`mb-3 w-full rounded-lg py-3 text-xs font-black uppercase tracking-wide transition ${
+                                                    disponivel
+                                                        ? "bg-green-600 text-white hover:bg-green-700"
+                                                        : "bg-red-700 text-white hover:bg-red-800"
+                                                }`}
                                             >
-                                                🗑️ Excluir
+                                                {disponivel
+                                                    ? "✓ Disponível"
+                                                    : "✕ Indisponível"}
                                             </button>
+
+                                            {/* BOTÕES */}
+
+                                            <div className="grid grid-cols-2 gap-3">
+
+                                                {/* EDITAR */}
+
+                                                <a
+                                                    href={`/admin/editar/${produto.id}`}
+                                                    className="flex items-center justify-center rounded-lg border border-[#444] bg-[#222] py-3 text-xs font-black uppercase tracking-wide text-gray-300 transition hover:bg-[#333] hover:text-white"
+                                                >
+                                                    ✏️ Editar
+                                                </a>
+
+                                                {/* EXCLUIR */}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        excluirProduto(
+                                                            produto.id
+                                                        )
+                                                    }
+                                                    className="flex items-center justify-center rounded-lg border border-red-900/60 bg-[#451010] py-3 text-xs font-black uppercase tracking-wide text-red-400 transition hover:border-red-600 hover:bg-[#7f1d1d] hover:text-white"
+                                                >
+                                                    🗑️ Excluir
+                                                </button>
+
+                                            </div>
 
                                         </div>
 
-                                    </div>
+                                    </article>
 
-                                </article>
-
-                            )
+                                )
+                            }
                         )}
 
                     </div>
